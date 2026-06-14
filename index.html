@@ -407,6 +407,8 @@ function semaforo(cor,label,score){
   const dot={verde:'🟢',amarelo:'🟡',vermelho:'🔴',cinza:'⚪'}[cor]||'⚪';
   return`<span class="semaforo ${cls}">${dot} ${label} ${score}%</span>`;
 }
+
+window.addEventListener('DOMContentLoaded',()=>{
   const cfg=JSON.parse(localStorage.getItem('pcd_cfg')||'{}');
   SUPA_URL=cfg.url||''; SUPA_ANON=cfg.anon||''; SUPA_SERVICE=cfg.service||'';
   document.getElementById('cfg-url').value=SUPA_URL;
