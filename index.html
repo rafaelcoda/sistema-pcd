@@ -128,22 +128,75 @@ hr.div{border:none;border-top:1px solid #ebebeb;margin:14px 0}
   <div id="cota-box"></div>
 
   <!-- GRÁFICOS -->
-  <div id="charts-area" style="display:none;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
-    <div class="card" style="padding:14px 16px">
-      <div class="card-title"><i class="ti ti-chart-donut"></i> Score de triagem</div>
-      <div style="position:relative;height:200px"><canvas id="chart-score"></canvas></div>
+  <div id="charts-area" style="display:none;gap:10px;margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px;margin-bottom:10px">
+      <!-- Coluna esquerda: deficiência + CC -->
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="card" style="padding:14px 16px;flex:1">
+          <div class="card-title"><i class="ti ti-accessibility"></i> Distribuição por tipo de deficiência</div>
+          <div style="position:relative;height:180px"><canvas id="chart-defic"></canvas></div>
+        </div>
+        <div class="card" style="padding:14px 16px">
+          <div class="card-title"><i class="ti ti-building"></i> Por centro de custo <span style="font-weight:400;color:#888">(top 8)</span></div>
+          <div style="position:relative;height:160px"><canvas id="chart-cc"></canvas></div>
+        </div>
+      </div>
+      <!-- Coluna direita: 3 indicadores -->
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="card" style="padding:16px 18px;flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:40px;height:40px;border-radius:10px;background:#d6f0c8;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <i class="ti ti-check" style="color:#2d6e1a;font-size:20px"></i>
+            </div>
+            <div>
+              <div style="font-size:11px;color:#888;margin-bottom:2px">Confirmados automaticamente</div>
+              <div id="ind-confirmado" style="font-size:26px;font-weight:700;color:#3B7D20">—</div>
+            </div>
+          </div>
+          <div id="ind-confirmado-bar" style="height:4px;background:#e8e8e4;border-radius:999px;margin-top:6px;overflow:hidden">
+            <div id="ind-confirmado-fill" style="height:100%;background:#3B7D20;border-radius:999px;width:0;transition:width .5s"></div>
+          </div>
+        </div>
+        <div class="card" style="padding:16px 18px;flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:40px;height:40px;border-radius:10px;background:#fde9c0;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <i class="ti ti-clock" style="color:#854F0B;font-size:20px"></i>
+            </div>
+            <div>
+              <div style="font-size:11px;color:#888;margin-bottom:2px">Em revisão manual</div>
+              <div id="ind-revisao" style="font-size:26px;font-weight:700;color:#854F0B">—</div>
+            </div>
+          </div>
+          <div style="height:4px;background:#e8e8e4;border-radius:999px;margin-top:6px;overflow:hidden">
+            <div id="ind-revisao-fill" style="height:100%;background:#EF9F27;border-radius:999px;width:0;transition:width .5s"></div>
+          </div>
+        </div>
+        <div class="card" style="padding:16px 18px;flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:40px;height:40px;border-radius:10px;background:#e4e0f8;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <i class="ti ti-wheelchair" style="color:#4a35a0;font-size:20px"></i>
+            </div>
+            <div>
+              <div style="font-size:11px;color:#888;margin-bottom:2px">PCD identificados</div>
+              <div id="ind-pcd" style="font-size:26px;font-weight:700;color:#4a35a0">—</div>
+            </div>
+          </div>
+          <div style="height:4px;background:#e8e8e4;border-radius:999px;margin-top:6px;overflow:hidden">
+            <div id="ind-pcd-fill" style="height:100%;background:#7F77DD;border-radius:999px;width:0;transition:width .5s"></div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="card" style="padding:14px 16px">
-      <div class="card-title"><i class="ti ti-chart-bar"></i> Status de respostas</div>
-      <div style="position:relative;height:200px"><canvas id="chart-status"></canvas></div>
-    </div>
-    <div class="card" style="padding:14px 16px">
-      <div class="card-title"><i class="ti ti-accessibility"></i> Tipo de deficiência</div>
-      <div style="position:relative;height:200px"><canvas id="chart-defic"></canvas></div>
-    </div>
-    <div class="card" style="padding:14px 16px">
-      <div class="card-title"><i class="ti ti-building"></i> Respostas por centro de custo <span style="font-weight:400;color:#888">(top 10)</span></div>
-      <div style="position:relative;height:200px"><canvas id="chart-cc"></canvas></div>
+    <!-- Linha inferior: score + status lado a lado -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="card" style="padding:14px 16px">
+        <div class="card-title"><i class="ti ti-chart-donut"></i> Score de triagem</div>
+        <div style="position:relative;height:180px"><canvas id="chart-score"></canvas></div>
+      </div>
+      <div class="card" style="padding:14px 16px">
+        <div class="card-title"><i class="ti ti-chart-bar"></i> Status de respostas</div>
+        <div style="position:relative;height:180px"><canvas id="chart-status"></canvas></div>
+      </div>
     </div>
   </div>
   <div class="card">
@@ -588,10 +641,9 @@ function destroyChart(id){ if(chartInstances[id]){ chartInstances[id].destroy();
 
 function renderCharts(){
   if(!dashData.length) return;
-  document.getElementById('charts-area').style.display='grid';
+  document.getElementById('charts-area').style.display='block';
 
-  // --- 1. Score de triagem ---
-  destroyChart('score');
+  // Calcular dados base
   let confirmado=0,revisao=0,baixo=0,naoPcd=0;
   dashData.filter(c=>c._resp).forEach(c=>{
     if(!c._resp.e_pcd){naoPcd++;return;}
@@ -600,23 +652,58 @@ function renderCharts(){
     else if(s.score>=SCORE_REVISAO)revisao++;
     else baixo++;
   });
-  chartInstances['score']=new Chart(document.getElementById('chart-score'),{
-    type:'doughnut',
-    data:{labels:['Confirmado','Em revisão','Baixo','Não PCD'],datasets:[{data:[confirmado,revisao,baixo,naoPcd],backgroundColor:['#3B7D20','#EF9F27','#c0392b','#b0b0b0'],borderWidth:2,borderColor:'#fff'}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:11},boxWidth:12}}}}
-  });
-
-  // --- 2. Status de respostas ---
-  destroyChart('status');
+  const pcdTotal=dashData.filter(c=>c._resp&&c._resp.e_pcd).length;
   const responderam=dashData.filter(c=>c._resp).length;
   const aguardando=dashData.length-responderam;
-  chartInstances['status']=new Chart(document.getElementById('chart-status'),{
-    type:'bar',
-    data:{labels:['Responderam','Aguardando'],datasets:[{data:[responderam,aguardando],backgroundColor:['#185FA5','#EF9F27'],borderRadius:6,borderSkipped:false}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0},grid:{color:'#f0f0ea'}},x:{grid:{display:false}}}}
+
+  // --- Indicadores laterais ---
+  document.getElementById('ind-confirmado').textContent=confirmado;
+  document.getElementById('ind-revisao').textContent=revisao;
+  document.getElementById('ind-pcd').textContent=pcdTotal;
+  const maxInd=Math.max(confirmado,revisao,pcdTotal,1);
+  document.getElementById('ind-confirmado-fill').style.width=Math.round(confirmado/maxInd*100)+'%';
+  document.getElementById('ind-revisao-fill').style.width=Math.round(revisao/maxInd*100)+'%';
+  document.getElementById('ind-pcd-fill').style.width=Math.round(pcdTotal/maxInd*100)+'%';
+
+  // --- Score de triagem (donut) ---
+  destroyChart('score');
+  chartInstances['score']=new Chart(document.getElementById('chart-score'),{
+    type:'doughnut',
+    data:{
+      labels:['Confirmado','Em revisão','Baixo','Não PCD'],
+      datasets:[{data:[confirmado,revisao,baixo,naoPcd],backgroundColor:['#3B7D20','#EF9F27','#c0392b','#ccc'],borderWidth:3,borderColor:'#fff',hoverOffset:4}]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,cutout:'68%',
+      plugins:{
+        legend:{position:'right',labels:{font:{size:11},boxWidth:10,padding:10,usePointStyle:true,pointStyle:'rectRounded'}},
+        tooltip:{callbacks:{label:ctx=>{const total=ctx.dataset.data.reduce((a,b)=>a+b,0);const pct=total?Math.round(ctx.raw/total*100):0;return ` ${ctx.label}: ${ctx.raw} (${pct}%)`;}}},
+      }
+    }
   });
 
-  // --- 3. Tipo de deficiência ---
+  // --- Status de respostas (barras) ---
+  destroyChart('status');
+  chartInstances['status']=new Chart(document.getElementById('chart-status'),{
+    type:'bar',
+    data:{
+      labels:['Responderam','Aguardando'],
+      datasets:[{data:[responderam,aguardando],backgroundColor:['#185FA5','#EF9F27'],borderRadius:8,borderSkipped:false,barThickness:48}]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>{const total=responderam+aguardando;const pct=total?Math.round(ctx.raw/total*100):0;return ` ${ctx.raw.toLocaleString('pt-BR')} (${pct}%)`;}}},
+      },
+      scales:{
+        y:{beginAtZero:true,ticks:{precision:0,callback:v=>v.toLocaleString('pt-BR')},grid:{color:'#f5f5f2'}},
+        x:{grid:{display:false},ticks:{font:{size:12}}}
+      }
+    }
+  });
+
+  // --- Tipo de deficiência (barra horizontal) ---
   destroyChart('defic');
   const deficMap={};
   dashData.filter(c=>c._resp&&c._resp.e_pcd&&c._resp.tipo_deficiencia).forEach(c=>{
@@ -624,24 +711,44 @@ function renderCharts(){
     deficMap[t]=(deficMap[t]||0)+1;
   });
   const deficEntries=Object.entries(deficMap).sort((a,b)=>b[1]-a[1]);
+  const deficColors=['#7F77DD','#AFA9EC','#534AB7','#CECBF6','#3C3489','#185FA5','#85B7EB'];
   chartInstances['defic']=new Chart(document.getElementById('chart-defic'),{
     type:'bar',
-    data:{labels:deficEntries.map(e=>e[0]),datasets:[{data:deficEntries.map(e=>e[1]),backgroundColor:'#7F77DD',borderRadius:4,borderSkipped:false}]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{precision:0},grid:{color:'#f0f0ea'}},y:{grid:{display:false},ticks:{font:{size:11}}}}}
+    data:{
+      labels:deficEntries.map(e=>e[0]),
+      datasets:[{data:deficEntries.map(e=>e[1]),backgroundColor:deficEntries.map((_,i)=>deficColors[i%deficColors.length]),borderRadius:4,borderSkipped:false}]
+    },
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{beginAtZero:true,ticks:{precision:0},grid:{color:'#f5f5f2'}},
+        y:{grid:{display:false},ticks:{font:{size:11}}}
+      }
+    }
   });
 
-  // --- 4. Respostas por centro de custo (top 10) ---
+  // --- Centro de custo (barra horizontal top 8) ---
   destroyChart('cc');
   const ccMap={};
   dashData.filter(c=>c._resp&&c.centro_custo).forEach(c=>{
-    const cc=c.centro_custo;
-    ccMap[cc]=(ccMap[cc]||0)+1;
+    ccMap[c.centro_custo]=(ccMap[c.centro_custo]||0)+1;
   });
-  const ccEntries=Object.entries(ccMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const ccEntries=Object.entries(ccMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
   chartInstances['cc']=new Chart(document.getElementById('chart-cc'),{
     type:'bar',
-    data:{labels:ccEntries.map(e=>e[0]),datasets:[{data:ccEntries.map(e=>e[1]),backgroundColor:'#185FA5',borderRadius:4,borderSkipped:false}]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{precision:0},grid:{color:'#f0f0ea'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}
+    data:{
+      labels:ccEntries.map(e=>e[0]),
+      datasets:[{data:ccEntries.map(e=>e[1]),backgroundColor:'#185FA5',borderRadius:4,borderSkipped:false}]
+    },
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{beginAtZero:true,ticks:{precision:0},grid:{color:'#f5f5f2'}},
+        y:{grid:{display:false},ticks:{font:{size:10}}}
+      }
+    }
   });
 }
 
