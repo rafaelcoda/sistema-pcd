@@ -648,7 +648,7 @@ function renderDashboard(){
   document.getElementById('k-rev-bar').style.width=grupoBCTotal?(pendentes/grupoBCTotal*100)+'%':'0';
   const cotaMin=total<200?0:total<=500?Math.ceil(total*.02):total<=1000?Math.ceil(total*.03):total<=2000?Math.ceil(total*.04):Math.ceil(total*.05);
   const cotaBox=document.getElementById('cota-box');
-  if(cotaMin>0){const ok=pcd>=cotaMin;cotaBox.innerHTML=`<div class="alert ${ok?'ok':'warn'}"><strong><i class="ti ti-scale"></i> Cota legal — Lei 8.213/91:</strong> Para ${total} funcionários, mínimo de <strong>${cotaMin} PCDs</strong>. Identificados: <strong>${pcd}</strong> — ${ok?'<span style="color:#2d6e1a">✓ dentro da cota</span>':'<span style="color:#9b1a1a">⚠ abaixo da cota</span>'}${wait>0?' ('+wait+' ainda não responderam)':''}.</div>`;}
+  if(cotaMin>0){const ok=grupoBCTotal>=cotaMin;cotaBox.innerHTML=`<div class="alert ${ok?'ok':'warn'}"><strong><i class="ti ti-scale"></i> Cota legal — Lei 8.213/91:</strong> Para ${total} funcionários, mínimo de <strong>${cotaMin} PCDs</strong>. Identificados: <strong>${grupoBCTotal}</strong> — ${ok?'<span style="color:#2d6e1a">✓ dentro da cota</span>':'<span style="color:#9b1a1a">⚠ abaixo da cota</span>'}${wait>0?' ('+wait+' ainda não responderam)':''}.</div>`;}
   else cotaBox.innerHTML='';
   const areas=[...new Set(dashData.map(c=>c.area).filter(Boolean))].sort();
   document.getElementById('camp-area').innerHTML='<option value="">— Selecione —</option>'+areas.map(a=>`<option>${a}</option>`).join('');
