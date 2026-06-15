@@ -396,7 +396,7 @@ hr.div{border:none;border-top:1px solid #ebebeb;margin:14px 0}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
-let SUPA_URL='', SUPA_ANON='', SUPA_SERVICE='';
+let SUPA_URL='https://kstucwdfmrvzgxcmsbhc.supabase.co', SUPA_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtzdHVjd2RmbXJ2emd4Y21zYmhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExOTk3NzMsImV4cCI6MjA5Njc3NTc3M30.l5eB8r4tLg4UGqqcdP8SrghCR_wVppBr3w0pt_wkQsA', SUPA_SERVICE='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtzdHVjd2RmbXJ2emd4Y21zYmhjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTE5OTc3MywiZXhwIjoyMDk2Nzc1NzczfQ.YoUZTz9-xFucgT00MQrq3XTTK-JbbrRi4TapjSBjUio';
 let dashData=[], importData=[], formFiles=[], formColab=null, pubTarget='todos';
 let localCampanhas=[];
 
@@ -532,7 +532,9 @@ function semaforo(cor,label,score){
 
 window.addEventListener('DOMContentLoaded',()=>{
   const cfg=JSON.parse(localStorage.getItem('pcd_cfg')||'{}');
-  SUPA_URL=cfg.url||''; SUPA_ANON=cfg.anon||''; SUPA_SERVICE=cfg.service||'';
+  if(cfg.url) SUPA_URL=cfg.url;
+  if(cfg.anon) SUPA_ANON=cfg.anon;
+  if(cfg.service) SUPA_SERVICE=cfg.service;
   document.getElementById('cfg-url').value=SUPA_URL;
   document.getElementById('cfg-anon').value=SUPA_ANON;
   document.getElementById('cfg-service').value=SUPA_SERVICE;
@@ -591,21 +593,29 @@ async function supaGetAll(path,useAdmin=false){
 
 // DASHBOARD
 async function loadDashboard(){
-  if(!SUPA_URL||!SUPA_ANON){useMockData();return;}
+  if(!SUPA_URL||!SUPA_ANON){
+    console.warn('Sem credenciais — usando mock. URL:', SUPA_URL?'OK':'vazio', 'ANON:', SUPA_ANON?'OK':'vazio');
+    useMockData();return;
+  }
   document.getElementById('dash-loading').style.display='block';
   document.getElementById('dash-tbl-wrap').style.display='none';
   document.getElementById('dash-empty').style.display='none';
   try{
+    console.log('Buscando banco...', SUPA_URL);
     const[colab,resps,docs]=await Promise.all([
       supaGetAll('/rest/v1/colaboradores?select=*&ativo=eq.true&order=nome.asc'),
       supaGetAll('/rest/v1/respostas?select=*'),
       supaGetAll('/rest/v1/documentos?select=colaborador_id')
     ]);
+    console.log('Resultado — colaboradores:', colab.length, '| respostas:', resps.length);
     const map={};resps.forEach(r=>{map[r.colaborador_id]=r;});
     const laudoSet=new Set(docs.map(d=>d.colaborador_id));
     dashData=colab.map(c=>({...c,_resp:map[c.id]||null,_temLaudo:laudoSet.has(c.id)}));
     renderDashboard();
-  }catch(e){console.warn('Banco indisponível, usando mock:',e.message);useMockData();}
+  }catch(e){
+    console.error('Erro ao buscar banco:', e.message);
+    useMockData();
+  }
 }
 
 function useMockData(){
