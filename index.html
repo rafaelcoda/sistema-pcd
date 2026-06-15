@@ -177,7 +177,8 @@ hr.div{border:none;border-top:1px solid #ebebeb;margin:14px 0}
       <div id="dash-pag-info" style="font-size:12px;color:#888"></div>
       <div style="display:flex;align-items:center;gap:4px" id="dash-pag-btns"></div>
       <select id="dash-pag-size" style="width:110px;font-size:12px" onchange="changePagSize()">
-        <option value="50">50 por página</option>
+        <option value="10">10 por página</option>
+        <option value="50" selected>50 por página</option>
         <option value="100">100 por página</option>
         <option value="200">200 por página</option>
       </select>
@@ -501,6 +502,20 @@ async function supaDownloadUrl(bucket,path){
   return SUPA_URL+'/storage/v1'+d.signedURL;
 }
 
+// Busca todos os registros contornando o limite de 1000 do Supabase
+async function supaGetAll(path,useAdmin=false){
+  const PAGE=1000;
+  let all=[],offset=0;
+  const sep=path.includes('?')?'&':'?';
+  while(true){
+    const batch=await supaGet(`${path}${sep}limit=${PAGE}&offset=${offset}`,useAdmin);
+    all=all.concat(batch);
+    if(batch.length<PAGE)break;
+    offset+=PAGE;
+  }
+  return all;
+}
+
 // DASHBOARD
 async function loadDashboard(){
   if(!SUPA_URL||!SUPA_ANON){useMockData();return;}
@@ -509,9 +524,9 @@ async function loadDashboard(){
   document.getElementById('dash-empty').style.display='none';
   try{
     const[colab,resps,docs]=await Promise.all([
-      supaGet('/rest/v1/colaboradores?select=*&ativo=eq.true&order=nome.asc'),
-      supaGet('/rest/v1/respostas?select=*'),
-      supaGet('/rest/v1/documentos?select=colaborador_id')
+      supaGetAll('/rest/v1/colaboradores?select=*&ativo=eq.true&order=nome.asc'),
+      supaGetAll('/rest/v1/respostas?select=*'),
+      supaGetAll('/rest/v1/documentos?select=colaborador_id')
     ]);
     const map={};resps.forEach(r=>{map[r.colaborador_id]=r;});
     const laudoSet=new Set(docs.map(d=>d.colaborador_id));
@@ -665,7 +680,7 @@ function renderPage(){
       <td>${scoreCol}</td>
       <td>${dt}</td>
       <td>${pcd}</td>
-      <td>${r?`<button class="btn sm" onclick='openModal("${c.id}")'><i class="ti ti-eye"></i> Ver</button>`:''}</td>
+      <td><button class="btn sm" onclick='openModal("${c.id}")'><i class="ti ti-eye"></i> Ver</button></td>
     </tr>`;
   }).join('');
 
@@ -757,26 +772,26 @@ async function openModal(id){
   document.getElementById('m-resp').innerHTML='<div style="text-align:center;padding:20px"><span class="spin"></span></div>';
   document.getElementById('m-docs').innerHTML='<div style="text-align:center;padding:20px"><span class="spin"></span></div>';
   document.getElementById('m-triagem').innerHTML='<div style="text-align:center;padding:20px"><span class="spin"></span></div>';
-  if(SUPA_URL&&SUPA_ANON&&colab._resp){
+  if(SUPA_URL&&SUPA_ANON){
     try{
       const[resps,docs]=await Promise.all([
         supaGet(`/rest/v1/respostas?colaborador_id=eq.${id}&order=respondido_em.desc&limit=1`),
         supaGet(`/rest/v1/documentos?colaborador_id=eq.${id}&order=criado_em.desc`)
       ]);
-      const resp=resps[0]||colab._resp;
+      const resp=resps[0]||colab._resp||null;
       const temLaudo=docs.length>0;
       renderModalResp(resp);
       renderModalDocs(docs);
       renderModalTriagem(id,resp,temLaudo,docs.length);
     }catch{
-      renderModalResp(colab._resp);
+      renderModalResp(colab._resp||null);
       renderModalDocs([]);
-      renderModalTriagem(id,colab._resp,colab._temLaudo,0);
+      renderModalTriagem(id,colab._resp||null,colab._temLaudo,0);
     }
   }else{
-    renderModalResp(colab._resp);
+    renderModalResp(colab._resp||null);
     renderModalDocs([]);
-    renderModalTriagem(id,colab._resp,colab._temLaudo,0);
+    renderModalTriagem(id,colab._resp||null,colab._temLaudo,0);
   }
 }
 
