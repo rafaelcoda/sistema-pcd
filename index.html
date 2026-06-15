@@ -958,15 +958,77 @@ async function openModal(id){
 
 function renderModalResp(r){
   if(!r){document.getElementById('m-resp').innerHTML='<div style="color:#888;text-align:center;padding:20px">Sem resposta registrada.</div>';return;}
+
+  // Tentar parsear observacoes como JSON
+  let obs={};
+  try{ if(r.observacoes) obs=JSON.parse(r.observacoes); }catch(e){ obs={}; }
+
+  const grupo=r.grupo_triagem||obs.grupo||'—';
+  const grupoCores={A:{bg:'#EAF3DE',color:'#27500A',label:'Grupo A — Baixa probabilidade'},B:{bg:'#E6F1FB',color:'#0C447C',label:'Grupo B — Possível PCD / Reabilitado'},C:{bg:'#FAEEDA',color:'#633806',label:'Grupo C — Análise especial'}};
+  const gc=grupoCores[grupo]||{bg:'#ebebeb',color:'#555',label:'Não classificado'};
+
+  const badge=(val)=>{
+    if(!val||val==='—')return'<span style="color:#888">—</span>';
+    const map={sim:{bg:'#EAF3DE',color:'#27500A',icon:'ti-check',label:'Sim'},nao:{bg:'#F1EFE8',color:'#5F5E5A',icon:'ti-x',label:'Não'},pref:{bg:'#FAEEDA',color:'#633806',icon:'ti-minus',label:'Prefiro não responder'},em_processo:{bg:'#E6F1FB',color:'#0C447C',icon:'ti-clock',label:'Em processo'},nao_sei:{bg:'#F1EFE8',color:'#5F5E5A',icon:'ti-question-mark',label:'Não sei informar'},acidente_trabalho:{bg:'#FCEBEB',color:'#791F1F',icon:'ti-alert-triangle',label:'Acidente de trabalho'},doenca_ocupacional:{bg:'#FAEEDA',color:'#633806',icon:'ti-virus',label:'Doença ocupacional'},sem_relacao:{bg:'#F1EFE8',color:'#5F5E5A',icon:'ti-info-circle',label:'Sem relação com trabalho'}};
+    const m=map[val];
+    if(m)return`<span style="background:${m.bg};color:${m.color};padding:3px 10px;border-radius:999px;font-size:11px;font-weight:500;display:inline-flex;align-items:center;gap:4px"><i class="ti ${m.icon}"></i>${m.label}</span>`;
+    return`<span style="font-weight:500">${esc(val)}</span>`;
+  };
+
+  const chips=(arr)=>{
+    if(!arr||!arr.length||arr.includes('nenhuma'))return'<span style="color:#888;font-size:12px">Nenhuma</span>';
+    return arr.filter(v=>v!=='nenhuma').map(v=>`<span style="padding:2px 9px;border-radius:999px;font-size:11px;background:var(--color-background-secondary,#f4f4f0);color:var(--color-text-secondary,#555);border:0.5px solid #e0e0d8;display:inline-block;margin:2px">${esc(v)}</span>`).join('');
+  };
+
+  const row=(label,val)=>`<div style="display:flex;align-items:flex-start;padding:8px 14px;border-bottom:0.5px solid #f0f0ea;gap:12px"><div style="font-size:12px;color:#888;flex:0 0 220px;padding-top:2px">${label}</div><div style="font-size:13px;flex:1;text-align:right">${val}</div></div>`;
+
+  const sec=(icon,title,rows)=>`
+    <div style="background:#fff;border:0.5px solid #e0e0d8;border-radius:10px;overflow:hidden;margin-bottom:8px">
+      <div style="padding:7px 14px;background:#f8f8f5;border-bottom:0.5px solid #e0e0d8;display:flex;align-items:center;gap:7px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#666">
+        <i class="ti ${icon}" style="font-size:14px"></i>${title}
+      </div>
+      <div>${rows}</div>
+    </div>`;
+
+  const q=obs;
+  const dt=r.respondido_em?new Date(r.respondido_em).toLocaleString('pt-BR'):'—';
+
   document.getElementById('m-resp').innerHTML=`
-    <div class="drow"><div class="dk">É PCD?</div><div class="dv">${r.e_pcd?'<span class="badge bp">Sim</span>':'<span class="badge bgr">Não</span>'}</div></div>
-    ${r.tipo_deficiencia?`<div class="drow"><div class="dk">Tipo</div><div class="dv">${esc(r.tipo_deficiencia)}</div></div>`:''}
-    ${r.cid?`<div class="drow"><div class="dk">CID</div><div class="dv">${esc(r.cid)}</div></div>`:''}
-    <div class="drow"><div class="dk">Usa recurso/adaptação?</div><div class="dv">${r.usa_recurso?'Sim':'Não'}</div></div>
-    ${r.recursos?`<div class="drow"><div class="dk">Recursos</div><div class="dv">${esc(r.recursos)}</div></div>`:''}
-    ${r.adaptacao_necessaria?`<div class="drow"><div class="dk">Adaptação necessária</div><div class="dv">${esc(r.adaptacao_necessaria)}</div></div>`:''}
-    ${r.observacoes?`<div class="drow"><div class="dk">Observações</div><div class="dv">${esc(r.observacoes)}</div></div>`:''}
-    <div class="drow"><div class="dk">Respondido em</div><div class="dv">${r.respondido_em?new Date(r.respondido_em).toLocaleString('pt-BR'):'—'}</div></div>`;
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 2px;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:12px;color:#888"><i class="ti ti-calendar"></i> Respondido em <strong>${dt}</strong></div>
+      <span style="background:${gc.bg};color:${gc.color};padding:4px 12px;border-radius:999px;font-size:11px;font-weight:500">${gc.label}</span>
+    </div>
+
+    ${sec('ti-id-badge','Identificação',
+      row('Possui deficiência ou condição permanente?',badge(q.q1||( r.e_pcd?'sim':'nao')))+
+      (q.q2||r.tipo_deficiencia?row('Tipo de deficiência',`<strong>${esc(q.q2||r.tipo_deficiencia)}</strong>`):'') +
+      (q.q3?row('Possui laudo médico atualizado?',badge(q.q3)):'') +
+      (q.q4?row('A condição é permanente?',badge(q.q4)):'')
+    )}
+
+    ${sec('ti-accessible','Limitações funcionais',
+      row('Dificuldades relatadas', q.q5&&q.q5.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end">${chips(q.q5)}</div>`:(r.recursos?`<span style="font-weight:500">${esc(r.recursos)}</span>`:'<span style="color:#888">Não informado</span>'))
+    )}
+
+    ${sec('ti-info-circle','Informações complementares',
+      (q.q6?row('Já foi contratado como PCD?',badge(q.q6)):'') +
+      (q.q7?row('Recebe benefício relacionado à condição?',badge(q.q7)):'')
+    )}
+
+    ${sec('ti-stethoscope','Triagem complementar',
+      row('Condições diagnosticadas', q.q8&&q.q8.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end">${chips(q.q8)}</div>`:(r.adaptacao_necessaria?`<span style="font-weight:500">${esc(r.adaptacao_necessaria)}</span>`:'<span style="color:#888">Não informado</span>'))
+    )}
+
+    ${q.q9&&q.q9!=='nao'?sec('ti-building-hospital','Reabilitação INSS',
+      row('Participou de reabilitação profissional?',badge(q.q9))+
+      (q.q10?row('Possui certificado de reabilitação?',badge(q.q10)):'') +
+      (q.q11?row('Origem da reabilitação',badge(q.q11)):'')
+    ):''}
+
+    ${sec('ti-shield-check','Autorização',
+      row('Autoriza contato da Saúde Ocupacional?',badge(q.q12||'nao'))
+    )}
+  `;
 }
 
 async function renderModalDocs(docs){
