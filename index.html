@@ -120,10 +120,10 @@ hr.div{border:none;border-top:1px solid #ebebeb;margin:14px 0}
 <div id="v-dash" class="view act">
   <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr)">
     <div class="kpi"><div class="kl">Total colaboradores</div><div class="kv bl" id="k-total">—</div></div>
-    <div class="kpi"><div class="kl">Responderam</div><div class="kv gr" id="k-resp">—</div><div class="pbar"><div class="pfill" id="k-resp-bar" style="background:#3B7D20;width:0"></div></div></div>
+    <div class="kpi"><div class="kl">Respondentes</div><div class="kv gr" id="k-resp">—</div><div class="pbar"><div class="pfill" id="k-resp-bar" style="background:#3B7D20;width:0"></div></div></div>
     <div class="kpi"><div class="kl">Aguardando</div><div class="kv am" id="k-wait">—</div><div class="pbar"><div class="pfill" id="k-wait-bar" style="background:#EF9F27;width:0"></div></div></div>
-    <div class="kpi"><div class="kl">PCD identificados</div><div class="kv pu" id="k-pcd">—</div><div class="pbar"><div class="pfill" id="k-pcd-bar" style="background:#7F77DD;width:0"></div></div></div>
-    <div class="kpi"><div class="kl">Em revisão manual</div><div class="kv am" id="k-rev">—</div><div class="pbar"><div class="pfill" id="k-rev-bar" style="background:#EF9F27;width:0"></div></div></div>
+    <div class="kpi"><div class="kl">Grupo B + C (Saúde)</div><div class="kv pu" id="k-pcd">—</div><div class="pbar"><div class="pfill" id="k-pcd-bar" style="background:#7F77DD;width:0"></div></div></div>
+    <div class="kpi"><div class="kl">Pendentes avaliação</div><div class="kv am" id="k-rev">—</div><div class="pbar"><div class="pfill" id="k-rev-bar" style="background:#EF9F27;width:0"></div></div></div>
   </div>
   <div id="cota-box"></div>
 
@@ -187,15 +187,19 @@ hr.div{border:none;border-top:1px solid #ebebeb;margin:14px 0}
         </div>
       </div>
     </div>
-    <!-- Linha inferior: score + status lado a lado -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <!-- Linha inferior: score + status + filial -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
       <div class="card" style="padding:14px 16px">
-        <div class="card-title"><i class="ti ti-chart-donut"></i> Score de triagem</div>
+        <div class="card-title"><i class="ti ti-chart-donut"></i> Score — grupos A / B / C</div>
         <div style="position:relative;height:180px"><canvas id="chart-score"></canvas></div>
       </div>
       <div class="card" style="padding:14px 16px">
         <div class="card-title"><i class="ti ti-chart-bar"></i> Status de respostas</div>
         <div style="position:relative;height:180px"><canvas id="chart-status"></canvas></div>
+      </div>
+      <div class="card" style="padding:14px 16px">
+        <div class="card-title"><i class="ti ti-map-pin"></i> Por filial <span style="font-weight:400;color:#888">(top 8)</span></div>
+        <div style="position:relative;height:180px"><canvas id="chart-filial"></canvas></div>
       </div>
     </div>
   </div>
@@ -444,6 +448,14 @@ create table if not exists respostas (
   score_justificativa text,
   score_revisado_por text,
   score_revisado_em timestamptz,
+  grupo_triagem text,
+  email_contato text,
+  telefone_contato text,
+  status_saude text default 'pendente',
+  substatus_saude text,
+  resultado text,
+  resultado_em timestamptz,
+  resultado_por text,
   respondido_em timestamptz default now()
 );
 
@@ -474,6 +486,14 @@ alter table colaboradores add column if not exists cargo text;
 alter table colaboradores add column if not exists filial text;
 alter table colaboradores add column if not exists centro_custo text;
 alter table colaboradores add column if not exists setor text;
+alter table respostas add column if not exists grupo_triagem text;
+alter table respostas add column if not exists email_contato text;
+alter table respostas add column if not exists telefone_contato text;
+alter table respostas add column if not exists status_saude text default 'pendente';
+alter table respostas add column if not exists substatus_saude text;
+alter table respostas add column if not exists resultado text;
+alter table respostas add column if not exists resultado_em timestamptz;
+alter table respostas add column if not exists resultado_por text;
 alter table respostas enable row level security;
 alter table documentos enable row level security;
 
@@ -601,21 +621,21 @@ function useMockData(){
 
 function renderDashboard(){
   const total=dashData.length,resp=dashData.filter(c=>c._resp).length;
-  const wait=total-resp,pcd=dashData.filter(c=>c._resp&&c._resp.e_pcd).length;
-  const emRevisao=dashData.filter(c=>{
-    if(!c._resp||!c._resp.e_pcd)return false;
-    const s=calcularScore(c._resp,c._temLaudo);
-    return s.score>=SCORE_REVISAO&&s.score<SCORE_CONFIRMADO&&s.fase==='auto';
-  }).length;
+  const wait=total-resp;
+  const grupoB=dashData.filter(c=>c._resp&&c._resp.grupo_triagem==='B').length;
+  const grupoC=dashData.filter(c=>c._resp&&c._resp.grupo_triagem==='C').length;
+  const grupoBCTotal=grupoB+grupoC;
+  const pendentes=dashData.filter(c=>c._resp&&(c._resp.grupo_triagem==='B'||c._resp.grupo_triagem==='C')&&(c._resp.status_saude==='pendente'||!c._resp.status_saude)).length;
+
   document.getElementById('k-total').textContent=total;
   document.getElementById('k-resp').textContent=resp;
   document.getElementById('k-wait').textContent=wait;
-  document.getElementById('k-pcd').textContent=pcd;
-  document.getElementById('k-rev').textContent=emRevisao;
+  document.getElementById('k-pcd').textContent=grupoBCTotal;
+  document.getElementById('k-rev').textContent=pendentes;
   document.getElementById('k-resp-bar').style.width=total?(resp/total*100)+'%':'0';
   document.getElementById('k-wait-bar').style.width=total?(wait/total*100)+'%':'0';
-  document.getElementById('k-pcd-bar').style.width=total?(pcd/total*100)+'%':'0';
-  document.getElementById('k-rev-bar').style.width=total?(emRevisao/total*100)+'%':'0';
+  document.getElementById('k-pcd-bar').style.width=total?(grupoBCTotal/total*100)+'%':'0';
+  document.getElementById('k-rev-bar').style.width=grupoBCTotal?(pendentes/grupoBCTotal*100)+'%':'0';
   const cotaMin=total<200?0:total<=500?Math.ceil(total*.02):total<=1000?Math.ceil(total*.03):total<=2000?Math.ceil(total*.04):Math.ceil(total*.05);
   const cotaBox=document.getElementById('cota-box');
   if(cotaMin>0){const ok=pcd>=cotaMin;cotaBox.innerHTML=`<div class="alert ${ok?'ok':'warn'}"><strong><i class="ti ti-scale"></i> Cota legal — Lei 8.213/91:</strong> Para ${total} funcionários, mínimo de <strong>${cotaMin} PCDs</strong>. Identificados: <strong>${pcd}</strong> — ${ok?'<span style="color:#2d6e1a">✓ dentro da cota</span>':'<span style="color:#9b1a1a">⚠ abaixo da cota</span>'}${wait>0?' ('+wait+' ainda não responderam)':''}.</div>`;}
@@ -644,40 +664,47 @@ function renderCharts(){
   document.getElementById('charts-area').style.display='block';
 
   // Calcular dados base
-  let confirmado=0,revisao=0,baixo=0,naoPcd=0;
+  let grupoA=0,grupoB=0,grupoC=0;
   dashData.filter(c=>c._resp).forEach(c=>{
-    if(!c._resp.e_pcd){naoPcd++;return;}
-    const s=calcularScore(c._resp,c._temLaudo);
-    if(s.score>=SCORE_CONFIRMADO)confirmado++;
-    else if(s.score>=SCORE_REVISAO)revisao++;
-    else baixo++;
+    const g=c._resp.grupo_triagem;
+    if(g==='A')grupoA++;
+    else if(g==='B')grupoB++;
+    else if(g==='C')grupoC++;
+    else{
+      // legado — calcular pelo score
+      if(!c._resp.e_pcd)grupoA++;
+      else{const s=calcularScore(c._resp,c._temLaudo);if(s.score>=SCORE_CONFIRMADO)grupoB++;else if(s.score>=SCORE_REVISAO)grupoC++;else grupoA++;}
+    }
   });
-  const pcdTotal=dashData.filter(c=>c._resp&&c._resp.e_pcd).length;
+  const pcdTotal=grupoB+grupoC;
   const responderam=dashData.filter(c=>c._resp).length;
   const aguardando=dashData.length-responderam;
 
   // --- Indicadores laterais ---
-  document.getElementById('ind-confirmado').textContent=confirmado;
-  document.getElementById('ind-revisao').textContent=revisao;
+  document.getElementById('ind-confirmado').textContent=grupoB;
+  document.getElementById('ind-revisao').textContent=grupoC;
   document.getElementById('ind-pcd').textContent=pcdTotal;
-  const maxInd=Math.max(confirmado,revisao,pcdTotal,1);
-  document.getElementById('ind-confirmado-fill').style.width=Math.round(confirmado/maxInd*100)+'%';
-  document.getElementById('ind-revisao-fill').style.width=Math.round(revisao/maxInd*100)+'%';
+  const maxInd=Math.max(grupoB,grupoC,pcdTotal,1);
+  document.getElementById('ind-confirmado-fill').style.width=Math.round(grupoB/maxInd*100)+'%';
+  document.getElementById('ind-revisao-fill').style.width=Math.round(grupoC/maxInd*100)+'%';
   document.getElementById('ind-pcd-fill').style.width=Math.round(pcdTotal/maxInd*100)+'%';
 
-  // --- Score de triagem (donut) ---
+  // Atualizar labels dos indicadores
+  document.querySelector('#ind-confirmado').closest('.card').querySelector('.kpi-ind-label,div[style*="11px"]').textContent='Grupo B — Possível PCD/Reabilitado';
+
+  // --- Score A/B/C (donut) ---
   destroyChart('score');
   chartInstances['score']=new Chart(document.getElementById('chart-score'),{
     type:'doughnut',
     data:{
-      labels:['Confirmado','Em revisão','Baixo','Não PCD'],
-      datasets:[{data:[confirmado,revisao,baixo,naoPcd],backgroundColor:['#3B7D20','#EF9F27','#c0392b','#ccc'],borderWidth:3,borderColor:'#fff',hoverOffset:4}]
+      labels:['Grupo A — Baixa prob.','Grupo B — Possível PCD','Grupo C — Análise especial'],
+      datasets:[{data:[grupoA,grupoB,grupoC],backgroundColor:['#3B7D20','#185FA5','#EF9F27'],borderWidth:3,borderColor:'#fff',hoverOffset:4}]
     },
     options:{
       responsive:true,maintainAspectRatio:false,cutout:'68%',
       plugins:{
-        legend:{position:'right',labels:{font:{size:11},boxWidth:10,padding:10,usePointStyle:true,pointStyle:'rectRounded'}},
-        tooltip:{callbacks:{label:ctx=>{const total=ctx.dataset.data.reduce((a,b)=>a+b,0);const pct=total?Math.round(ctx.raw/total*100):0;return ` ${ctx.label}: ${ctx.raw} (${pct}%)`;}}},
+        legend:{position:'right',labels:{font:{size:10},boxWidth:10,padding:8,usePointStyle:true,pointStyle:'rectRounded'}},
+        tooltip:{callbacks:{label:ctx=>{const total=ctx.dataset.data.reduce((a,b)=>a+b,0);const pct=total?Math.round(ctx.raw/total*100):0;return ` ${ctx.raw} (${pct}%)`;}}}
       }
     }
   });
@@ -744,10 +771,27 @@ function renderCharts(){
     options:{
       indexAxis:'y',responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false}},
-      scales:{
-        x:{beginAtZero:true,ticks:{precision:0},grid:{color:'#f5f5f2'}},
-        y:{grid:{display:false},ticks:{font:{size:10}}}
-      }
+      scales:{x:{beginAtZero:true,ticks:{precision:0},grid:{color:'#f5f5f2'}},y:{grid:{display:false},ticks:{font:{size:10}}}}
+    }
+  });
+
+  // --- Por filial (top 8) ---
+  destroyChart('filial');
+  const filialMap={};
+  dashData.filter(c=>c._resp&&c.filial).forEach(c=>{
+    filialMap[c.filial]=(filialMap[c.filial]||0)+1;
+  });
+  const filialEntries=Object.entries(filialMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  chartInstances['filial']=new Chart(document.getElementById('chart-filial'),{
+    type:'bar',
+    data:{
+      labels:filialEntries.map(e=>'Filial '+e[0]),
+      datasets:[{data:filialEntries.map(e=>e[1]),backgroundColor:'#7F77DD',borderRadius:4,borderSkipped:false}]
+    },
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{beginAtZero:true,ticks:{precision:0},grid:{color:'#f5f5f2'}},y:{grid:{display:false},ticks:{font:{size:10}}}}
     }
   });
 }
@@ -928,74 +972,95 @@ async function renderModalDocs(docs){
 function renderModalTriagem(colaboradorId,resp,temLaudo,numDocs){
   if(!resp){document.getElementById('m-triagem').innerHTML='<div style="color:#888;text-align:center;padding:20px">Colaborador ainda não respondeu o formulário.</div>';return;}
   const s=calcularScore(resp,temLaudo);
-  const barColor={verde:'#3B7D20',amarelo:'#EF9F27',vermelho:'#c0392b'}[s.cor]||'#ccc';
-  const precisaRevisao=s.cor==='amarelo'&&s.fase==='auto';
+  const grupo=resp.grupo_triagem||'—';
+  const grupoCores={A:{bg:'#d6f0c8',color:'#2d6e1a',label:'Grupo A — Baixa probabilidade'},B:{bg:'#d0e8f9',color:'#185FA5',label:'Grupo B — Possível PCD / Reabilitado'},C:{bg:'#fde9c0',color:'#7a4c0a',label:'Grupo C — Análise especial'}};
+  const gc=grupoCores[grupo]||{bg:'#ebebeb',color:'#555',label:'Não classificado'};
 
-  const breakdown=s.breakdown.map(b=>`
-    <div class="drow"><div class="dk"><i class="ti ti-check" style="color:#3B7D20"></i> ${esc(b.item)}</div><div class="dv">+${b.pts} pts</div></div>`).join('');
+  const statusOpts=['pendente','em_analise','concluido'];
+  const statusLabels={pendente:'Pendente',em_analise:'Em análise / andamento',concluido:'Concluído',nao_aplicavel:'N/A (Grupo A)'};
+  const substatusOpts=['triagem_enfermagem','avaliacao_medico','exames_complementares','consulta_laudo'];
+  const substatusLabels={triagem_enfermagem:'Triagem Enfermagem',avaliacao_medico:'Avaliação Médico do Trabalho',exames_complementares:'Exames e/ou Avaliações Complementares',consulta_laudo:'Consulta — Laudo Caracterizador'};
+  const resultadoOpts=['enquadrado','desqualificado'];
+  const resultadoLabels={enquadrado:'Enquadrado',desqualificado:'Desqualificado'};
 
-  const faltando=[
-    !resp.e_pcd&&{item:'Declarar ser PCD',pts:PESOS.e_pcd},
-    resp.e_pcd&&!resp.tipo_deficiencia&&{item:'Informar tipo de deficiência',pts:PESOS.tipo_deficiencia},
-    resp.e_pcd&&!resp.cid&&{item:'Informar CID',pts:PESOS.cid},
-    !temLaudo&&resp.e_pcd&&{item:'Anexar laudo médico',pts:PESOS.tem_laudo},
-  ].filter(Boolean);
+  const statusAtual=resp.status_saude||'pendente';
+  const substatusAtual=resp.substatus_saude||'';
+  const resultadoAtual=resp.resultado||'';
 
-  const faltandoHtml=faltando.map(b=>`
-    <div class="drow"><div class="dk"><i class="ti ti-x" style="color:#c0392b"></i> ${esc(b.item)}</div><div class="dv" style="color:#888">+${b.pts} pts (faltando)</div></div>`).join('');
+  const isBC=grupo==='B'||grupo==='C';
 
-  const revisaoHtml=precisaRevisao?`
-    <div class="revisao-form">
-      <div style="font-weight:600;font-size:13px;color:#7a4c0a;margin-bottom:10px"><i class="ti ti-alert-triangle"></i> Revisão manual necessária</div>
-      <p style="font-size:12px;color:#7a4c0a;margin-bottom:12px">Score automático insuficiente para confirmação. A técnica deve avaliar e registrar o score final.</p>
-      <div class="form-group">
-        <label>Score final (0–100)</label>
-        <input type="text" id="rev-score" placeholder="Ex.: 85" style="width:100px">
-      </div>
-      <div class="form-group">
-        <label>Justificativa</label>
-        <textarea id="rev-just" placeholder="Descreva o resultado da entrevista e avaliação..."></textarea>
-      </div>
-      <div class="form-group">
-        <label>Revisado por</label>
-        <input type="text" id="rev-nome" placeholder="Nome da técnica responsável">
-      </div>
-      <button class="btn primary" onclick="salvarRevisao('${resp.id}','${colaboradorId}')"><i class="ti ti-device-floppy"></i> Salvar revisão</button>
-    </div>`
-  :resp.score_fase==='manual'?`<div class="alert ok"><i class="ti ti-check"></i> Revisão manual registrada por <strong>${esc(resp.score_revisado_por||'—')}</strong>${resp.score_revisado_em?' em '+new Date(resp.score_revisado_em).toLocaleDateString('pt-BR'):''}.<br><em>${esc(resp.score_justificativa||'')}</em></div>`
-  :'';
+  const fluxoHtml=isBC?`
+    <hr class="div">
+    <div style="font-size:12px;font-weight:600;color:#444;margin-bottom:10px;text-transform:uppercase;letter-spacing:.4px"><i class="ti ti-stethoscope"></i> Fluxo Saúde Ocupacional</div>
+    <div class="form-group">
+      <label>Status</label>
+      <select id="saude-status" onchange="onStatusChange()">
+        ${statusOpts.map(s=>`<option value="${s}" ${statusAtual===s?'selected':''}>${statusLabels[s]}</option>`).join('')}
+      </select>
+    </div>
+    <div id="substatus-group" class="form-group" style="display:${statusAtual==='em_analise'?'block':'none'}">
+      <label>Sub-status (etapa atual)</label>
+      <select id="saude-substatus">
+        <option value="">— Selecione a etapa —</option>
+        ${substatusOpts.map(s=>`<option value="${s}" ${substatusAtual===s?'selected':''}>${substatusLabels[s]}</option>`).join('')}
+      </select>
+    </div>
+    <div id="resultado-group" class="form-group" style="display:${statusAtual==='concluido'?'block':'none'}">
+      <label>Resultado</label>
+      <select id="saude-resultado">
+        <option value="">— Selecione o resultado —</option>
+        ${resultadoOpts.map(s=>`<option value="${s}" ${resultadoAtual===s?'selected':''}>${resultadoLabels[s]}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Responsável</label>
+      <input type="text" id="saude-resp" placeholder="Nome do responsável" value="${esc(resp.score_revisado_por||'')}">
+    </div>
+    <button class="btn primary" onclick="salvarFluxoSaude('${resp.id}')"><i class="ti ti-device-floppy"></i> Salvar atualização</button>
+    ${resp.resultado?`<div class="alert ok" style="margin-top:10px"><i class="ti ti-check"></i> Resultado: <strong>${resultadoLabels[resp.resultado]||resp.resultado}</strong>${resp.resultado_em?' — '+new Date(resp.resultado_em).toLocaleDateString('pt-BR'):''}${resp.resultado_por?' por '+esc(resp.resultado_por):''}</div>`:''}
+  `:'<div class="alert ok" style="margin-top:12px"><i class="ti ti-info-circle"></i> Grupo A — não requer avaliação da Saúde Ocupacional.</div>';
+
+  const contatoHtml=(resp.email_contato||resp.telefone_contato)?`
+    <hr class="div">
+    <div style="font-size:12px;font-weight:600;color:#444;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px"><i class="ti ti-phone"></i> Contato do colaborador</div>
+    ${resp.email_contato?`<div class="drow"><div class="dk">E-mail</div><div class="dv">${esc(resp.email_contato)}</div></div>`:''}
+    ${resp.telefone_contato?`<div class="drow"><div class="dk">Telefone/WhatsApp</div><div class="dv">${esc(resp.telefone_contato)}</div></div>`:''}
+  `:'';
 
   document.getElementById('m-triagem').innerHTML=`
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-      ${semaforo(s.cor,s.label,s.score)}
-      <div style="flex:1"><div class="score-bar" style="width:100%;display:block"><div class="score-fill" style="width:${s.score}%;background:${barColor}"></div></div></div>
-      <div style="font-size:12px;color:#888">Fase: <strong>${s.fase==='manual'?'Manual':'Automática'}</strong></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <span style="background:${gc.bg};color:${gc.color};padding:5px 12px;border-radius:999px;font-size:12px;font-weight:600">${gc.label}</span>
+      <span style="font-size:12px;color:#888">Score: <strong>${s.score} pts</strong></span>
     </div>
+    ${contatoHtml}
     <div style="font-size:12px;font-weight:600;color:#444;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Critérios atendidos</div>
-    ${breakdown||'<div style="color:#888;font-size:13px;padding:6px 0">Nenhum critério atendido.</div>'}
-    ${faltandoHtml?`<div style="font-size:12px;font-weight:600;color:#444;margin:10px 0 6px;text-transform:uppercase;letter-spacing:.4px">Critérios pendentes</div>${faltandoHtml}`:''}
-    <hr class="div">
-    ${revisaoHtml}
+    ${s.breakdown.map(b=>`<div class="drow"><div class="dk"><i class="ti ti-check" style="color:#3B7D20"></i> ${esc(b.item)}</div><div class="dv">+${b.pts} pts</div></div>`).join('')||'<div style="color:#888;font-size:13px;padding:6px 0">Nenhum critério atendido.</div>'}
+    ${fluxoHtml}
   `;
 }
 
-async function salvarRevisao(respostaId,colaboradorId){
-  const scoreVal=parseInt(document.getElementById('rev-score').value);
-  const just=document.getElementById('rev-just').value.trim();
-  const nome=document.getElementById('rev-nome').value.trim();
-  if(isNaN(scoreVal)||scoreVal<0||scoreVal>100){toast('Score inválido (0–100).',true);return;}
-  if(!just){toast('Informe a justificativa.',true);return;}
-  if(!SUPA_URL||!SUPA_ANON){toast('Revisão salva (modo demo).');return;}
+function onStatusChange(){
+  const v=document.getElementById('saude-status').value;
+  document.getElementById('substatus-group').style.display=v==='em_analise'?'block':'none';
+  document.getElementById('resultado-group').style.display=v==='concluido'?'block':'none';
+}
+
+async function salvarFluxoSaude(respostaId){
+  const status=document.getElementById('saude-status').value;
+  const substatus=document.getElementById('saude-substatus')?.value||null;
+  const resultado=document.getElementById('saude-resultado')?.value||null;
+  const resp_por=document.getElementById('saude-resp').value.trim();
+  if(!SUPA_URL||!SUPA_ANON){toast('Salvo (modo demo).');return;}
+  const body={status_saude:status,substatus_saude:substatus||null,score_revisado_por:resp_por||null};
+  if(resultado){body.resultado=resultado;body.resultado_em=new Date().toISOString();body.resultado_por=resp_por||null;}
   try{
     await fetch(`${SUPA_URL}/rest/v1/respostas?id=eq.${respostaId}`,{
       method:'PATCH',
       headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON,'Content-Type':'application/json','Prefer':'return=minimal'},
-      body:JSON.stringify({score:scoreVal,score_fase:'manual',score_justificativa:just,score_revisado_por:nome||null,score_revisado_em:new Date().toISOString()})
+      body:JSON.stringify(body)
     });
-    toast('Revisão salva com sucesso!');
-    closeModal();
-    loadDashboard();
-  }catch(e){toast('Erro ao salvar: '+e.message,true);}
+    toast('Fluxo de saúde atualizado!');closeModal();loadDashboard();
+  }catch(e){toast('Erro: '+e.message,true);}
 }
 
 function closeModal(){document.getElementById('modal-bg').classList.remove('open');}
@@ -1042,46 +1107,170 @@ function showColabInfo(c){
 
 function buildFormPerguntas(){
   document.getElementById('form-perguntas').innerHTML=`
+  <div class="card" style="padding:14px 16px;margin-bottom:10px;background:#e8f2fb;border-color:#c0d8f0">
+    <div style="font-size:13px;color:#185FA5;line-height:1.6">
+      <strong>Pesquisa de Inclusão e Acessibilidade — A Apoio</strong><br>
+      <span style="font-size:12px">As informações são confidenciais, tratadas conforme a LGPD e utilizadas exclusivamente para fins de inclusão e cumprimento de obrigações legais. Participação voluntária.</span>
+    </div>
+  </div>
+
+  <!-- IDENTIFICAÇÃO -->
   <div class="q-card">
-    <div class="q-num">Pergunta 1 de 5</div>
-    <div class="q-text">Você se declara Pessoa com Deficiência (PCD)?</div>
+    <div class="q-num">Identificação — Pergunta 1 de 12</div>
+    <div class="q-text">Você possui alguma deficiência ou condição de saúde permanente que gere limitações para atividades do dia a dia ou trabalho?</div>
     <div class="opts">
-      <label class="opt"><input type="radio" name="q1" value="sim" onchange="toggleQ2(true)"> Sim</label>
-      <label class="opt"><input type="radio" name="q1" value="nao" onchange="toggleQ2(false)"> Não</label>
-      <label class="opt"><input type="radio" name="q1" value="pref" onchange="toggleQ2(false)"> Prefiro não informar</label>
+      <label class="opt"><input type="radio" name="q1" value="sim" onchange="onQ1('sim')"> Sim</label>
+      <label class="opt"><input type="radio" name="q1" value="nao" onchange="onQ1('nao')"> Não</label>
+      <label class="opt"><input type="radio" name="q1" value="pref" onchange="onQ1('pref')"> Prefiro não responder</label>
     </div>
   </div>
-  <div class="q-card" id="q2-block" style="display:none">
-    <div class="q-num">Pergunta 2 de 5</div>
-    <div class="q-text">Qual é o tipo de deficiência?</div>
-    <div class="opts">
-      ${['Física','Visual','Auditiva','Intelectual','Psicossocial','Múltipla','Outra'].map(t=>`<label class="opt"><input type="radio" name="q2" value="${t}"> ${t}</label>`).join('')}
+
+  <!-- PERGUNTAS 2-4: aparecem se Q1=sim -->
+  <div id="bloco-sim" style="display:none">
+    <div class="q-card">
+      <div class="q-num">Pergunta 2 de 12</div>
+      <div class="q-text">Qual o tipo da deficiência ou condição?</div>
+      <div class="opts">
+        ${['Física','Auditiva','Visual','Intelectual','Mental/Psicossocial','Múltipla'].map(t=>`<label class="opt"><input type="radio" name="q2" value="${t}"> ${t}</label>`).join('')}
+        <label class="opt"><input type="radio" name="q2" value="Outra"> Outra — <input type="text" id="q2-outra" placeholder="Qual?" style="width:160px;display:inline;padding:3px 6px;margin-left:4px"></label>
+      </div>
     </div>
-    <div class="form-group" style="margin-top:12px"><label>CID (opcional)</label><input type="text" id="f-cid" placeholder="Ex.: H54.0"></div>
-  </div>
-  <div class="q-card" id="q3-block" style="display:none">
-    <div class="q-num">Pergunta 3 de 5</div>
-    <div class="q-text">Você utiliza algum recurso ou tecnologia assistiva no trabalho?</div>
-    <div class="opts">
-      <label class="opt"><input type="radio" name="q3" value="sim" onchange="toggleQ4(true)"> Sim</label>
-      <label class="opt"><input type="radio" name="q3" value="nao" onchange="toggleQ4(false)"> Não</label>
+
+    <div class="q-card">
+      <div class="q-num">Pergunta 3 de 12</div>
+      <div class="q-text">Você possui laudo médico atualizado que descreva sua condição?</div>
+      <div class="opts">
+        <label class="opt"><input type="radio" name="q3" value="sim"> Sim</label>
+        <label class="opt"><input type="radio" name="q3" value="nao"> Não</label>
+        <label class="opt"><input type="radio" name="q3" value="em_processo"> Em processo de obtenção</label>
+      </div>
+    </div>
+
+    <div class="q-card">
+      <div class="q-num">Pergunta 4 de 12</div>
+      <div class="q-text">Sua condição é permanente?</div>
+      <div class="opts">
+        <label class="opt"><input type="radio" name="q4" value="sim"> Sim</label>
+        <label class="opt"><input type="radio" name="q4" value="nao"> Não</label>
+        <label class="opt"><input type="radio" name="q4" value="nao_sei"> Não sei informar</label>
+      </div>
     </div>
   </div>
-  <div class="q-card" id="q4-block" style="display:none">
-    <div class="q-num">Pergunta 4 de 5</div>
-    <div class="q-text">Quais recursos você utiliza?</div>
-    <div class="form-group"><textarea id="f-recursos" placeholder="Descreva os recursos ou tecnologias assistivas..."></textarea></div>
-  </div>
+
+  <!-- LIMITAÇÕES FUNCIONAIS — Pergunta 5 (sempre visível) -->
   <div class="q-card">
-    <div class="q-num">Pergunta 5 de 5</div>
-    <div class="q-text">Você precisa de alguma adaptação no ambiente de trabalho?</div>
-    <div class="form-group"><textarea id="f-adaptacao" placeholder="Descreva adaptações necessárias, ou deixe em branco..."></textarea></div>
-    <div class="form-group" style="margin-top:10px"><label>Observações adicionais (opcional)</label><textarea id="f-obs" placeholder="Qualquer informação adicional..."></textarea></div>
+    <div class="q-num">Limitações Funcionais — Pergunta 5 de 12</div>
+    <div class="q-text">Sua condição atual gera alguma das seguintes dificuldades? <span style="font-weight:400;font-size:12px;color:#888">(marque todas que se aplicam)</span></div>
+    <div class="opts">
+      ${['Locomoção','Subir escadas','Permanecer em pé por longos períodos','Levantar peso','Comunicação verbal','Audição','Visão','Leitura ou escrita','Aprendizagem','Concentração'].map(t=>`<label class="opt"><input type="checkbox" name="q5" value="${t}"> ${t}</label>`).join('')}
+      <label class="opt" style="border-color:#185FA5"><input type="checkbox" name="q5" value="nenhuma" onchange="onQ5Nenhuma(this)"> <strong>Nenhuma das anteriores</strong></label>
+      <label class="opt"><input type="checkbox" name="q5" value="Outra"> Outra — <input type="text" id="q5-outra" placeholder="Qual?" style="width:160px;display:inline;padding:3px 6px;margin-left:4px"></label>
+    </div>
+  </div>
+
+  <!-- INFORMAÇÕES COMPLEMENTARES — Perguntas 6 e 7 -->
+  <div class="q-card">
+    <div class="q-num">Informações Complementares — Pergunta 6 de 12</div>
+    <div class="q-text">Você já foi contratado anteriormente como Pessoa com Deficiência (PCD)?</div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="q6" value="sim"> Sim</label>
+      <label class="opt"><input type="radio" name="q6" value="nao"> Não</label>
+      <label class="opt"><input type="radio" name="q6" value="nao_sei"> Não sei informar</label>
+    </div>
+  </div>
+
+  <div class="q-card">
+    <div class="q-num">Pergunta 7 de 12</div>
+    <div class="q-text">Você recebe ou já recebeu algum benefício relacionado à sua condição de saúde ou deficiência?</div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="q7" value="sim"> Sim</label>
+      <label class="opt"><input type="radio" name="q7" value="nao"> Não</label>
+      <label class="opt"><input type="radio" name="q7" value="pref"> Prefiro não responder</label>
+    </div>
+  </div>
+
+  <!-- TRIAGEM COMPLEMENTAR — Pergunta 8 -->
+  <div class="q-card">
+    <div class="q-num">Triagem Complementar — Pergunta 8 de 12</div>
+    <div class="q-text">Você possui alguma das seguintes condições diagnosticadas por médico? <span style="font-weight:400;font-size:12px;color:#888">(marque todas que se aplicam)</span></div>
+    <div class="opts">
+      ${['Visão monocular','Perda auditiva parcial ou total','Limitação permanente de membro superior','Limitação permanente de membro inferior','Amputação','Paralisia','Sequelas permanentes de acidente','Sequelas permanentes de AVC','Transtorno do Espectro Autista (TEA)','Deficiência intelectual'].map(t=>`<label class="opt"><input type="checkbox" name="q8" value="${t}"> ${t}</label>`).join('')}
+      <label class="opt" style="border-color:#185FA5"><input type="checkbox" name="q8" value="nenhuma" onchange="onQ8Nenhuma(this)"> <strong>Nenhuma das opções</strong></label>
+    </div>
+  </div>
+
+  <!-- REABILITAÇÃO INSS — Perguntas 9-11 -->
+  <div class="q-card">
+    <div class="q-num">Reabilitação Profissional do INSS — Pergunta 9 de 12</div>
+    <div class="q-text">Você já participou de Programa de Reabilitação Profissional do INSS?</div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="q9" value="sim" onchange="toggleBloco('bloco-inss',true)"> Sim</label>
+      <label class="opt"><input type="radio" name="q9" value="nao" onchange="toggleBloco('bloco-inss',false)"> Não</label>
+      <label class="opt"><input type="radio" name="q9" value="nao_sei" onchange="toggleBloco('bloco-inss',false)"> Não sei informar</label>
+    </div>
+  </div>
+
+  <div id="bloco-inss" style="display:none">
+    <div class="q-card">
+      <div class="q-num">Pergunta 10 de 12</div>
+      <div class="q-text">O INSS já emitiu para você Certificado de Reabilitação Profissional?</div>
+      <div class="opts">
+        <label class="opt"><input type="radio" name="q10" value="sim"> Sim</label>
+        <label class="opt"><input type="radio" name="q10" value="nao"> Não</label>
+        <label class="opt"><input type="radio" name="q10" value="nao_sei"> Não sei informar</label>
+      </div>
+    </div>
+
+    <div class="q-card">
+      <div class="q-num">Pergunta 11 de 12</div>
+      <div class="q-text">Sua reabilitação profissional ocorreu em decorrência de:</div>
+      <div class="opts">
+        <label class="opt"><input type="radio" name="q11" value="acidente_trabalho"> Acidente de trabalho</label>
+        <label class="opt"><input type="radio" name="q11" value="doenca_ocupacional"> Doença ocupacional</label>
+        <label class="opt"><input type="radio" name="q11" value="sem_relacao"> Acidente ou doença sem relação com o trabalho</label>
+        <label class="opt"><input type="radio" name="q11" value="nao_sei"> Não sei informar</label>
+        <label class="opt"><input type="radio" name="q11" value="pref"> Prefiro não responder</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTATO -->
+  <div class="q-card" style="border-color:#7F77DD;background:#f5f4fe">
+    <div class="q-num">Contato</div>
+    <div class="q-text">Informe seus dados de contato para retorno da equipe de Saúde Ocupacional</div>
+    <div class="two-col" style="margin-top:8px">
+      <div class="form-group"><label>E-mail pessoal</label><input type="text" id="f-email-contato" placeholder="seuemail@gmail.com"></div>
+      <div class="form-group"><label>Telefone / WhatsApp</label><input type="text" id="f-tel-contato" placeholder="(11) 99999-0000"></div>
+    </div>
+  </div>
+
+  <!-- AUTORIZAÇÃO — Pergunta 12 -->
+  <div class="q-card" style="border-color:#185FA5;background:#f0f7ff">
+    <div class="q-num">Autorização — Pergunta 12 de 12</div>
+    <div class="q-text">Caso seja identificado potencial enquadramento como Pessoa com Deficiência, você autoriza o contato da área de <strong>Saúde Ocupacional</strong> para análise complementar e eventual apresentação de documentação médica?</div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="q12" value="sim"> Sim</label>
+      <label class="opt"><input type="radio" name="q12" value="nao"> Não</label>
+    </div>
   </div>`;
 }
 
-function toggleQ2(show){document.getElementById('q2-block').style.display=show?'block':'none';document.getElementById('q3-block').style.display=show?'block':'none';}
-function toggleQ4(show){document.getElementById('q4-block').style.display=show?'block':'none';}
+function onQ1(val){
+  document.getElementById('bloco-sim').style.display=val==='sim'?'block':'none';
+}
+function toggleBloco(id,show){
+  document.getElementById(id).style.display=show?'block':'none';
+}
+function onQ5Nenhuma(cb){
+  if(cb.checked){
+    document.querySelectorAll('input[name=q5]').forEach(c=>{if(c.value!=='nenhuma')c.checked=false;});
+  }
+}
+function onQ8Nenhuma(cb){
+  if(cb.checked){
+    document.querySelectorAll('input[name=q8]').forEach(c=>{if(c.value!=='nenhuma')c.checked=false;});
+  }
+}
 
 function handleDrop(e){e.preventDefault();document.getElementById('f-drop').classList.remove('drag');addFilesFromList(e.dataTransfer.files);}
 function addFiles(e){addFilesFromList(e.target.files);}
@@ -1093,20 +1282,82 @@ async function enviarFormulario(){
   if(!formColab){toast('Busque o colaborador primeiro.',true);return;}
   const q1=document.querySelector('input[name=q1]:checked');
   if(!q1){toast('Responda a pergunta 1.',true);return;}
-  const ePcd=q1.value==='sim';
-  const q2=ePcd?document.querySelector('input[name=q2]:checked'):null;
-  if(ePcd&&!q2){toast('Selecione o tipo de deficiência.',true);return;}
-  const q3=ePcd?document.querySelector('input[name=q3]:checked'):null;
-  const cid=document.getElementById('f-cid');
-  const rec=document.getElementById('f-recursos');
-  const ada=document.getElementById('f-adaptacao');
-  const obs=document.getElementById('f-obs');
-  const payload={colaborador_id:formColab.id==='mock-1'?null:formColab.id,e_pcd:ePcd,tipo_deficiencia:q2?q2.value:null,cid:cid?cid.value.trim()||null:null,usa_recurso:q3?q3.value==='sim':false,recursos:rec?rec.value.trim()||null:null,adaptacao_necessaria:ada?ada.value.trim()||null:null,observacoes:obs?obs.value.trim()||null:null};
-  // Calcular score automático fase 1
+  const q12=document.querySelector('input[name=q12]:checked');
+  if(!q12){toast('Responda a pergunta 12 (autorização).',true);return;}
+
+  // Coletar checkboxes q5
+  const q5vals=[...document.querySelectorAll('input[name=q5]:checked')].map(c=>c.value);
+  const q5outra=document.getElementById('q5-outra')?.value.trim();
+  if(q5vals.includes('Outra')&&q5outra)q5vals[q5vals.indexOf('Outra')]='Outra: '+q5outra;
+
+  // Coletar checkboxes q8
+  const q8vals=[...document.querySelectorAll('input[name=q8]:checked')].map(c=>c.value);
+
+  // Tipo deficiência
+  const q2=document.querySelector('input[name=q2]:checked');
+  let tipoDefic=q2?q2.value:null;
+  if(tipoDefic==='Outra'){const outra=document.getElementById('q2-outra')?.value.trim();if(outra)tipoDefic='Outra: '+outra;}
+
+  // Calcular grupo A/B/C
+  let grupo='A';
+  // Grupo B — indicadores positivos
+  if(q1.value==='sim')grupo='B';
+  if(q5vals.length>0&&!q5vals.includes('nenhuma'))grupo='B';
+  if(document.querySelector('input[name=q6]:checked')?.value==='sim')grupo='B';
+  if(document.querySelector('input[name=q7]:checked')?.value==='sim')grupo='B';
+  if(q8vals.length>0&&!q8vals.includes('nenhuma'))grupo='B';
+  if(document.querySelector('input[name=q9]:checked')?.value==='sim')grupo='B';
+  if(q12.value==='sim'&&grupo==='B')grupo='B';
+  // Grupo C — inconclusivo
+  if(q1.value==='pref')grupo='C';
+  if(document.querySelector('input[name=q6]:checked')?.value==='nao_sei'&&grupo!=='B')grupo='C';
+  if(document.querySelector('input[name=q7]:checked')?.value==='pref'&&grupo!=='B')grupo='C';
+  if(document.querySelector('input[name=q9]:checked')?.value==='nao_sei'&&grupo!=='B')grupo='C';
+  if(q12.value==='nao'&&grupo==='B')grupo='B'; // mantém B mas sem autorização
+
+  const ePcd = grupo==='B';
+
+  const emailContato=document.getElementById('f-email-contato')?.value.trim()||null;
+  const telContato=document.getElementById('f-tel-contato')?.value.trim()||null;
+
+  const payload={
+    colaborador_id:formColab.id==='mock-1'?null:formColab.id,
+    e_pcd:ePcd,
+    tipo_deficiencia:tipoDefic,
+    cid:null,
+    usa_recurso:null,
+    recursos:q5vals.filter(v=>v!=='nenhuma').join(', ')||null,
+    adaptacao_necessaria:q8vals.filter(v=>v!=='nenhuma').join(', ')||null,
+    grupo_triagem:grupo,
+    email_contato:emailContato,
+    telefone_contato:telContato,
+    status_saude:grupo==='A'?'nao_aplicavel':'pendente',
+    observacoes:JSON.stringify({
+      grupo,
+      q1:q1.value,
+      q2:tipoDefic,
+      q3:document.querySelector('input[name=q3]:checked')?.value||null,
+      q4:document.querySelector('input[name=q4]:checked')?.value||null,
+      q5:q5vals,
+      q6:document.querySelector('input[name=q6]:checked')?.value||null,
+      q7:document.querySelector('input[name=q7]:checked')?.value||null,
+      q8:q8vals,
+      q9:document.querySelector('input[name=q9]:checked')?.value||null,
+      q10:document.querySelector('input[name=q10]:checked')?.value||null,
+      q11:document.querySelector('input[name=q11]:checked')?.value||null,
+      q12:q12.value,
+    })
+  };
+
+  // Score automático
   const scoreAuto=calcularScore(payload,formFiles.length>0);
   payload.score=scoreAuto.score;
   payload.score_fase='auto';
-  if(!SUPA_URL||!SUPA_ANON){toast('Formulário enviado (modo demo).');resetForm();return;}
+
+  if(!SUPA_URL||!SUPA_ANON){
+    toast(`Formulário enviado — Grupo ${grupo} (modo demo).`);
+    resetForm();return;
+  }
   try{
     const[resp]=await supaPost('/rest/v1/respostas',payload);
     if(formFiles.length&&resp){
@@ -1118,7 +1369,7 @@ async function enviarFormulario(){
         }catch(e){console.warn('Erro ao enviar arquivo:',e.message);}
       }
     }
-    toast('Resposta enviada com sucesso!');loadDashboard();resetForm();
+    toast(`Resposta enviada — Grupo ${grupo}!`);loadDashboard();resetForm();
   }catch(e){toast('Erro ao enviar: '+e.message,true);}
 }
 
